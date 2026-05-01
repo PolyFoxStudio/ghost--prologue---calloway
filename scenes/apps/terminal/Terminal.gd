@@ -556,6 +556,14 @@ func _cmd_shred(args: Array[String]) -> void:
 	_print_line("/internal/projects/vd-secure/calloway_jb/ — REMOVED", "dim")
 	_print_line("verification: NO DATA RECOVERABLE", "success")
 	
+	# Fire alarm event after wipe completes
+	await get_tree().create_timer(5.0).timeout
+	ScriptManager.fire_event("alarm_fired")
+	
+	# Calloway dies 180 seconds later
+	await get_tree().create_timer(180.0).timeout
+	ScriptManager.fire_event("calloway_dead")
+	
 	if GameState.logs_cleared:
 		GameState.advance_stage(6)
 
@@ -592,6 +600,38 @@ func _cmd_communicate_direct(message: String) -> void:
 		return
 	
 	_send_calloway_message_with(message)
+
+
+func receive_calloway_broadcast() -> void:
+	var sender: String = "jcalloway@vd-internal" if not GameState.ghost_communicated_with_calloway else "anonymous"
+	await get_tree().create_timer(1.5).timeout
+	_print_line("")
+	_print_line("[BROADCAST — vd-internal — " + sender + "]", "secondary")
+	_print_line("")
+	var lines: Array[String] = [
+		"please stop.",
+		"",
+		"I know you can hear me.",
+		"",
+		"fourteen people are dead. vantage dynamics knew.",
+		"you have the files now — you've seen it.",
+		"",
+		"my daughter's name is maya.",
+		"she asks about her goldfish every morning",
+		"to make sure it didn't die in the night.",
+		"",
+		"I don't know what I did to end up here.",
+		"I thought I was doing something worth doing.",
+		"",
+		"the journalist contact — I'll give you the key.",
+		"you don't have to be the one who uses it.",
+		"just make sure someone can.",
+	]
+	for line in lines:
+		_print_line(line)
+		await get_tree().create_timer(0.05).timeout
+	GameState.set_flag("ghost_knows_mayas_name", true)
+	GameState.set_flag("calloway_offered_key", true)
 
 
 func _send_calloway_message() -> void:

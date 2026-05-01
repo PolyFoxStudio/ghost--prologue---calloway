@@ -15,12 +15,16 @@ const APP_WINDOW_SCENE: PackedScene = preload("res://scenes/ui/AppWindow.tscn")
 @onready var _window_layer: Control = $WindowLayer
 @onready var _right_click_menu: PopupMenu = $RightClickMenu
 @onready var _objectives_board: PanelContainer = $ObjectivesBoard
+@onready var _nudge_system: Node = $NudgeSystem
 
 # Open window tracking
 var _open_windows: Dictionary = {}
 
 # Notification tracking
 var _notifications: Dictionary = {}
+
+# Brief delivery tracking
+var _brief_pending: bool = false
 
 # Double-click detection
 const DOUBLE_CLICK_TIME: float = 0.4  # 400ms for double-click
@@ -60,6 +64,10 @@ func open_app(app_name: String) -> void:
 			if TERMINAL_SCENE:
 				app_content = TERMINAL_SCENE.instantiate()
 				window_title = "Terminal"
+				# Check if brief needs to be populated
+				if _brief_pending:
+					app_content._vfs.populate_brief()
+					_brief_pending = false
 		"cipherlink":
 			if CIPHERLINK_SCENE:
 				app_content = CIPHERLINK_SCENE.instantiate()
@@ -111,14 +119,80 @@ func _on_stage_advanced(new_stage: int) -> void:
 	_objectives_board.refresh()
 
 
+func _get_cipherlink() -> Node:
+	if "cipherlink" in _open_windows:
+		return _open_windows["cipherlink"]
+	return null
+
+
+func _on_brief_delivered() -> void:
+	# The brief archive should now appear in the player's downloads
+	var terminal: Node = _open_windows.get("terminal", null)
+	if terminal:
+		terminal._vfs.populate_brief()
+	else:
+		# If terminal not open yet, set flag so brief is populated when it opens
+		_brief_pending = true
+
+
 func _on_world_event(event_name: String) -> void:
 	match event_name:
+		"brief_delivered":
+			_on_brief_delivered()
+		
+		"vpn_established":
+			# Terminal handles this internally
+			GameState.record_activity()
+		
 		"calloway_aware":
-			print("World event: calloway_aware")
+			ScriptManager.queue_message({
+				"from": "cipher",
+				"body": "ghost. calloway's machine just woke up.\nthey're in the archive.\n\nthey know someone's there.",
+				"delay": 2.0
+			})
+			GameState.calloway_aware = true
+		
+		"wipe_in_progress":
+			# Calloway's mid-wipe message arrives on the terminal
+			var terminal: Node = _open_windows.get("terminal", null)
+			if terminal:
+				terminal.receive_calloway_broadcast()
+			GameState.wipe_complete = false
+		
 		"alarm_fired":
-			print("World event: alarm_fired")
+			GameState.alarm_fired = true
+			ScriptManager.queue_message({
+				"from": "cipher",
+				"body": "ghost.\n\nphysical security at calloway's building just got\nan alert. I'm watching their external dispatch system.\n\nthat's faster than it should be. I ran the timing\nagainst their security contract. the response team\nshouldn't have been notified for another six minutes\nminimum.\n\nI don't know what this is.\nthis wasn't in the brief.",
+				"delay": 1.0
+			})
+			ScriptManager.queue_message({
+				"from": "cipher",
+				"body": "teams are moving. calloway's floor.\n\nghost — what do you want to do?",
+				"delay": 5.0
+			})
+			# Show response options after 6 seconds
+			await get_tree().create_timer(6.0).timeout
+			var cl: Node = _get_cipherlink()
+			if cl:
+				cl.show_response_options([
+					"can you warn them?",
+					"not our job.",
+				])
+		
+		"calloway_dead":
+			ScriptManager.queue_message({
+				"from": "cipher",
+				"body": "ghost.\n\ncalloway is dead.\n\nthe report's being filed as accidental.\nthey're calling it a fall.\n\nI've seen these reports before.\nthis one is not that.\n\nthis is not what we were hired to do.",
+				"delay": 1.0
+			})
+		
 		"epilogue_begin":
-			print("World event: epilogue_begin")
+			var cl: Node = _get_cipherlink()
+			if cl:
+				cl.activate_send_failed_mode()
+			print("Epilogue begin — scene transition placeholder")
+		
 		_:
 			print("World event: " + event_name)
 
