@@ -15,10 +15,14 @@ func _ready() -> void:
 	_presence.color = Color("#3a8a3a")
 	_input.text_submitted.connect(_on_input_submitted)
 	ScriptManager.message_queued.connect(_on_message_received)
+	_input.focus_mode = Control.FOCUS_CLICK
 	
 	if _first_open:
 		_first_open = false
 		_on_first_open()
+	
+	# Grab focus on the input field after everything is set up
+	_input.call_deferred("grab_focus")
 
 func _on_first_open() -> void:
 	first_opened.emit()

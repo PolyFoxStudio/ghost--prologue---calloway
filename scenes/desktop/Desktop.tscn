@@ -38,6 +38,7 @@ offset_left = 24.0
 offset_top = 24.0
 offset_right = 72.0
 offset_bottom = 88.0
+mouse_filter = 1
 
 [node name="IconBg" type="ColorRect" parent="DesktopIcons/TerminalIcon" unique_id=803856857]
 layout_mode = 1
@@ -68,6 +69,7 @@ offset_left = 24.0
 offset_top = 104.0
 offset_right = 72.0
 offset_bottom = 168.0
+mouse_filter = 1
 
 [node name="IconBg" type="ColorRect" parent="DesktopIcons/CipherLinkIcon" unique_id=2106016168]
 layout_mode = 1
@@ -98,6 +100,7 @@ offset_left = 24.0
 offset_top = 184.0
 offset_right = 72.0
 offset_bottom = 248.0
+mouse_filter = 1
 
 [node name="IconBg" type="ColorRect" parent="DesktopIcons/FilesIcon" unique_id=165501419]
 layout_mode = 1
@@ -128,6 +131,7 @@ offset_left = 24.0
 offset_top = 264.0
 offset_right = 72.0
 offset_bottom = 328.0
+mouse_filter = 1
 
 [node name="IconBg" type="ColorRect" parent="DesktopIcons/NotepadIcon" unique_id=1096215728]
 layout_mode = 1

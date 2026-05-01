@@ -34,20 +34,10 @@ func _ready() -> void:
 	ScriptManager.world_event_fired.connect(_on_world_event)
 	
 	# Connect desktop icon inputs
-	print("Desktop _ready() called")
-	print("TerminalIcon exists: ", has_node("DesktopIcons/TerminalIcon"))
-	print("TerminalIcon node: ", $DesktopIcons/TerminalIcon)
-	print("TerminalIcon mouse_filter: ", $DesktopIcons/TerminalIcon.mouse_filter)
-	
 	$DesktopIcons/TerminalIcon.gui_input.connect(_on_icon_input.bind("terminal"))
-	print("Connected TerminalIcon")
 	$DesktopIcons/CipherLinkIcon.gui_input.connect(_on_icon_input.bind("cipherlink"))
-	print("Connected CipherLinkIcon")
 	$DesktopIcons/FilesIcon.gui_input.connect(_on_icon_input.bind("files"))
-	print("Connected FilesIcon")
 	$DesktopIcons/NotepadIcon.gui_input.connect(_on_icon_input.bind("notepad"))
-	print("Connected NotepadIcon")
-	print("Desktop ready - icon signals connected")
 	
 	# CipherLink notification will be handled when app opens
 
@@ -102,6 +92,9 @@ func open_app(app_name: String) -> void:
 	
 	# Connect closed signal
 	window.closed.connect(_on_window_closed.bind(app_name))
+	
+	# Ensure the window can receive input by calling grab_focus on it
+	window.call_deferred("grab_focus")
 
 
 func _on_window_closed(app_name: String) -> void:
@@ -109,6 +102,7 @@ func _on_window_closed(app_name: String) -> void:
 
 
 func _position_new_window(window: Control) -> void:
+	window.z_index = 10
 	var offset: Vector2 = Vector2(24, 24) * _open_windows.size()
 	window.position = Vector2(100, 80) + offset
 
@@ -155,12 +149,10 @@ func _on_right_click_item(id: int) -> void:
 
 
 func _on_icon_input(event: InputEvent, app_name: String) -> void:
-	print("_on_icon_input called for: ", app_name, " event type: ", event.get_class())
 	if not event is InputEventMouseButton:
 		return
 	
 	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
-	print("Mouse button event - pressed: ", mouse_event.pressed, " button: ", mouse_event.button_index)
 	
 	if not mouse_event.pressed or mouse_event.button_index != MOUSE_BUTTON_LEFT:
 		return
