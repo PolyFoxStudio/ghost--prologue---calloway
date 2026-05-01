@@ -37,7 +37,7 @@ const CONTENT_CALLOWAY_PROFILE := """TARGET PROFILE: CALLOWAY, JORDAN B.
   Schedule: Works late. Usually offline by 23:00.
   Risk assessment: LOW.
                    No prior security incidents.
-                   Non-technical."""
+				   Non-technical."""
 
 const CONTENT_VD_NETWORK := """VANTAGE DYNAMICS — REMOTE ACCESS INFRASTRUCTURE
 
@@ -51,7 +51,7 @@ const CONTENT_VD_NETWORK := """VANTAGE DYNAMICS — REMOTE ACCESS INFRASTRUCTURE
 
   Internal structure — relevant paths:
     /internal/projects/        [accessible via Calloway credentials]
-    /internal/projects/vd-secure/calloway_jb/    [TARGET]"""
+	/internal/projects/vd-secure/calloway_jb/    [TARGET]"""
 
 const CONTENT_TARGET_MAP := """TARGET ARCHIVE — KNOWN STRUCTURE
   /internal/projects/vd-secure/calloway_jb/
@@ -120,7 +120,7 @@ package_05_FINAL/
 
 contacts/
               journalist_contact.gpg   [ENCRYPTED]
-              regulatory_contact.gpg   [ENCRYPTED]"""
+			  regulatory_contact.gpg   [ENCRYPTED]"""
 
 const CONTENT_BASH_HISTORY := """ls /internal/projects/
 ls /internal/projects/vd-secure/
@@ -216,97 +216,77 @@ func _get_active_tree() -> Dictionary:
 
 
 func _resolve_path(path: String) -> String:
-	# Handle home directory shortcut
+	if path == "~" or path == "":
+		return "/home/ghost"
+	
+	# Expand ~/
 	if path.begins_with("~/"):
 		path = "/home/ghost/" + path.substr(2)
+	elif path == "~":
+		path = "/home/ghost"
 	
-	# Handle relative paths
-	if path == "..":
-		# Go to parent directory
-		var parts: PackedStringArray = current_path.split("/")
-		var filtered_parts: Array[String] = []
-		for s in parts:
-			if s != "":
-				filtered_parts.append(s)
-		if filtered_parts.size() > 0:
-			filtered_parts.remove_at(filtered_parts.size() - 1)
-		if filtered_parts.size() == 0:
-			return "/"
-		return "/" + "/".join(filtered_parts)
-	
-	if path == ".":
-		return current_path
-	
-	# If path doesn't start with "/", treat as relative
+	# Handle relative paths (don't start with /)
 	if not path.begins_with("/"):
-		if current_path == "/":
-			path = "/" + path
+		path = current_path + "/" + path
+	
+	# Resolve .. and . segments
+	var segments: Array = path.split("/", false)
+	var resolved: Array[String] = []
+	for seg in segments:
+		if seg == "..":
+			if resolved.size() > 0:
+				resolved.pop_back()
+		elif seg == ".":
+			pass
 		else:
-			path = current_path + "/" + path
+			resolved.append(seg)
 	
-	# Strip trailing slash unless it's root
-	if path != "/" and path.ends_with("/"):
-		path = path.substr(0, path.length() - 1)
-	
-	return path
+	var result: String = "/" + "/".join(resolved)
+	return result
 
 
 func _navigate_to(path: String) -> Variant:
-	var parts: PackedStringArray = path.split("/")
-	var filtered_parts: Array[String] = []
-	for s in parts:
-		if s != "":
-			filtered_parts.append(s)
+	var segments = path.split("/", false)
+	var current = _get_active_tree()
 	
-	var current: Variant = _get_active_tree()
-	
-	for segment in filtered_parts:
-		if not current is Dictionary:
+	for segment in segments:
+		if typeof(current) != TYPE_DICTIONARY:
 			return "FILE"
-		
 		if not current.has(segment):
 			return null
-		
-		var value: Variant = current[segment]
-		
-		if value == "[PERMISSION_DENIED]":
-			return "PERMISSION_DENIED"
-		
-		if value is String and value != "[DIR]":
-			# It's a file, can't navigate into it unless it's the last segment
-			if segment != filtered_parts[filtered_parts.size() - 1]:
+		var value = current[segment]
+		if typeof(value) == TYPE_STRING:
+			if value == "[PERMISSION_DENIED]":
+				return "PERMISSION_DENIED"
+			else:
 				return "FILE"
-		
 		current = value
 	
 	return current
 
 
 func list(path: String) -> Variant:
-	var resolved_path: String = _resolve_path(path)
-	var result: Variant = _navigate_to(resolved_path)
+	var resolved = _resolve_path(path)
+	var result = _navigate_to(resolved)
 	
 	if result == null:
 		return null
-	
-	if result == "PERMISSION_DENIED":
-		return "PERMISSION_DENIED"
-	
-	if result == "FILE":
-		return "FILE"
-	
-	if not result is Dictionary:
+	if typeof(result) == TYPE_STRING:
+		if result == "PERMISSION_DENIED":
+			return "PERMISSION_DENIED"
+		if result == "FILE":
+			return "FILE"
+		return null
+	if typeof(result) != TYPE_DICTIONARY:
 		return null
 	
-	# Build list of entries, appending "/" to directories
 	var entries: Array[String] = []
 	for key in result.keys():
-		var value: Variant = result[key]
-		if value is Dictionary:
+		var value = result[key]
+		if typeof(value) == TYPE_DICTIONARY:
 			entries.append(key + "/")
 		else:
 			entries.append(key)
-	
 	return entries
 
 

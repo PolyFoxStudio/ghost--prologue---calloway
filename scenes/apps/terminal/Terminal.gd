@@ -1,5 +1,5 @@
 class_name Terminal
-extends VBoxContainer
+extends Control
 
 const PROMPT_LOCAL := "ghost@local:~$"
 const PROMPT_REMOTE := "jcalloway@vd-internal:~$"
@@ -16,58 +16,133 @@ var _calloway_buffer: String = ""
 var _calloway_exchange_count: int = 0
 var _transfer_halfway_sent: bool = false
 
-@onready var _output: VBoxContainer = $OutputScroll/OutputContainer
-@onready var _input_field: LineEdit = $InputRow/InputField
-@onready var _prompt_label: Label = $InputRow/PromptLabel
-@onready var _scroll: ScrollContainer = $OutputScroll
+# Inline input variables
+var _current_input: String = ""
+var _cursor_visible: bool = true
+var _current_input_line: RichTextLabel = null
+
+@onready var _output: VBoxContainer = $MarginContainer/OutputScroll/OutputContainer
+@onready var _scroll: ScrollContainer = $MarginContainer/OutputScroll
+@onready var _cursor_timer: Timer = $CursorTimer
 
 
 func _ready() -> void:
 	_vfs = VirtualFileSystem.new()
-	_input_field.text_submitted.connect(_on_command_submitted)
-	_input_field.grab_focus()
+	_cursor_timer.timeout.connect(_on_cursor_blink)
 	GameState.record_activity()
+	_update_prompt()
+	_show_input_line()
+	grab_focus()
 
 
-func _input(event: InputEvent) -> void:
-	GameState.record_activity()
+func _gui_input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed:
+		return
 	
-	if event is InputEventKey and event.pressed:
-		match event.keycode:
-			KEY_UP:
-				_cycle_history(-1)
-			KEY_DOWN:
-				_cycle_history(1)
-			KEY_TAB:
-				_attempt_tab_complete()
-				get_viewport().set_input_as_handled()
-			KEY_D:
-				if event.ctrl_pressed and _in_calloway_message_mode:
-					_send_calloway_message()
-					get_viewport().set_input_as_handled()
+	GameState.record_activity()
+	var key_event: InputEventKey = event as InputEventKey
+	
+	# Handle special keys
+	if key_event.keycode == KEY_ENTER:
+		_submit_command()
+		accept_event()
+		return
+	elif key_event.keycode == KEY_BACKSPACE:
+		if _current_input.length() > 0:
+			_current_input = _current_input.substr(0, _current_input.length() - 1)
+			_update_input_line()
+		accept_event()
+		return
+	elif key_event.keycode == KEY_UP:
+		_cycle_history(-1)
+		accept_event()
+		return
+	elif key_event.keycode == KEY_DOWN:
+		_cycle_history(1)
+		accept_event()
+		return
+	elif key_event.keycode == KEY_TAB:
+		_attempt_tab_complete()
+		accept_event()
+		return
+	elif key_event.keycode == KEY_D and key_event.ctrl_pressed:
+		if _in_calloway_message_mode:
+			_send_calloway_message()
+		accept_event()
+		return
+	elif key_event.keycode == KEY_C and key_event.ctrl_pressed:
+		# Ctrl+C: cancel current input
+		_current_input = ""
+		_print_line("^C")
+		_show_input_line()
+		accept_event()
+		return
+	
+	# Handle printable characters
+	if not key_event.ctrl_pressed and not key_event.alt_pressed and not key_event.meta_pressed:
+		var unicode: int = key_event.unicode
+		if unicode >= 32 and unicode < 127:  # Printable ASCII
+			_current_input += char(unicode)
+			_update_input_line()
+			accept_event()
 
 
-func _on_command_submitted(text: String) -> void:
-	var stripped_text: String = text.strip_edges()
-	if stripped_text.is_empty():
+func _on_cursor_blink() -> void:
+	_cursor_visible = not _cursor_visible
+	_update_input_line()
+
+
+func _show_input_line() -> void:
+	# Don't remove the old input line - keep it in history!
+	# Just finalize it (remove cursor) if it exists
+	if _current_input_line != null:
+		_current_input_line.text = _current_prompt + " " + _current_input
+	
+	# Create a new input line for the next command
+	_current_input_line = RichTextLabel.new()
+	_current_input_line.bbcode_enabled = true
+	_current_input_line.fit_content = true
+	_current_input_line.scroll_active = false
+	_current_input_line.add_theme_color_override("default_color", Color(0.831, 0.831, 0.831))
+	_output.add_child(_current_input_line)
+	_current_input = ""
+	_cursor_visible = true
+	_update_input_line()
+
+
+func _update_input_line() -> void:
+	if _current_input_line == null:
+		return
+	
+	var cursor: String = "|" if _cursor_visible else " "
+	_current_input_line.text = _current_prompt + " " + _current_input + cursor
+	
+	await get_tree().process_frame
+	_scroll_to_bottom()
+
+
+func _submit_command() -> void:
+	var command: String = _current_input.strip_edges()
+	
+	if command.is_empty():
+		_show_input_line()
 		return
 	
 	if _awaiting_mfa:
-		_handle_mfa_input(stripped_text)
-		_input_field.clear()
+		_handle_mfa_input(command)
+		_show_input_line()
 		return
 	
 	if _in_calloway_message_mode:
-		_calloway_buffer += stripped_text + "\n"
-		_input_field.clear()
+		_calloway_buffer += command + "\n"
+		_show_input_line()
 		return
 	
-	_print_line(_current_prompt + " " + stripped_text)
-	_history.push_front(stripped_text)
+	_history.push_front(command)
 	_history_index = -1
-	_input_field.clear()
-	_process_command(stripped_text)
+	_process_command(command)
 	GameState.record_activity()
+	_show_input_line()
 	
 	await get_tree().process_frame
 	_scroll_to_bottom()
@@ -140,16 +215,17 @@ func _cmd_ls(args: Array[String]) -> void:
 		_print_line("ls: " + path + ": No such file or directory", "error")
 		return
 	
-	if result == "PERMISSION_DENIED":
-		_print_line("ls: " + path + ": Permission denied", "error")
-		return
+	if typeof(result) == TYPE_STRING:
+		if result == "PERMISSION_DENIED":
+			_print_line("ls: " + path + ": Permission denied", "error")
+			return
+		if result == "FILE":
+			_print_line("ls: " + path + ": Not a directory", "error")
+			return
 	
-	if result == "FILE":
-		_print_line("ls: " + path + ": Not a directory", "error")
-		return
-	
-	for entry in result:
-		_print_line(entry)
+	if typeof(result) == TYPE_ARRAY:
+		for entry in result:
+			_print_line(entry)
 
 
 func _cmd_cat(args: Array[String]) -> void:
@@ -202,13 +278,13 @@ func _cmd_cd(args: Array[String]) -> void:
 		_print_line("cd: " + path + ": No such file or directory", "error")
 		return
 	
-	if result == "PERMISSION_DENIED":
-		_print_line("cd: " + path + ": Permission denied", "error")
-		return
-	
-	if result == "FILE":
-		_print_line("cd: " + path + ": Not a directory", "error")
-		return
+	if typeof(result) == TYPE_STRING:
+		if result == "PERMISSION_DENIED":
+			_print_line("cd: " + path + ": Permission denied", "error")
+			return
+		if result == "FILE":
+			_print_line("cd: " + path + ": Not a directory", "error")
+			return
 	
 	_vfs.current_path = resolved
 	_vfs.on_directory_entered(resolved)
@@ -284,7 +360,8 @@ func _cmd_openvpn(args: Array[String]) -> void:
 	_print_line("MFA token required:", "primary")
 	
 	_awaiting_mfa = true
-	_input_field.placeholder_text = "token:"
+	# Show input line for token entry
+	_show_input_line()
 	
 	ScriptManager.queue_message({
 		"from": "cipher",
@@ -296,7 +373,6 @@ func _cmd_openvpn(args: Array[String]) -> void:
 
 func _handle_mfa_input(token: String) -> void:
 	_awaiting_mfa = false
-	_input_field.placeholder_text = ""
 	
 	if token.strip_edges() == "847291":
 		await get_tree().create_timer(0.6).timeout
@@ -440,7 +516,7 @@ func _update_progress_line(pct: int) -> void:
 			last_child.queue_free()
 	
 	var style: String = "success" if pct == 100 else "amber"
-	var label: Label = _print_line(line, style)
+	var label: RichTextLabel = _print_line(line, style)
 	label.set_meta("is_progress", true)
 
 
@@ -649,27 +725,68 @@ func _cmd_scrub_logs(args: Array[String]) -> void:
 
 # ==================== OUTPUT HELPERS ====================
 
-func _print_line(text: String, style: String = "primary") -> Label:
-	var label: Label = Label.new()
-	label.text = text
+func _print_line(text: String, style: String = "primary") -> RichTextLabel:
+	var label: RichTextLabel = RichTextLabel.new()
+	label.bbcode_enabled = true
+	label.fit_content = true
+	label.scroll_active = false
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	
+	var color: String
 	match style:
 		"primary":
-			label.modulate = Color("#d4d4d4")
+			color = "#d4d4d4"
 		"error":
-			label.modulate = Color("#cc3333")
+			color = "#ff5555"
 		"success":
-			label.modulate = Color("#3a8a3a")
+			color = "#50fa7b"
 		"amber":
-			label.modulate = Color("#c8841a")
+			color = "#ffb86c"
 		"dim":
-			label.modulate = Color("#4a4a4a")
+			color = "#6272a4"
 		"secondary":
-			label.modulate = Color("#8a8a8a")
+			color = "#8be9fd"
 	
+	label.text = "[color=" + color + "]" + text + "[/color]"
 	_output.add_child(label)
 	return label
+
+
+func _print_command_with_prompt(command: String) -> void:
+	var path: String = _vfs.current_path
+	var display_path: String
+	if path.begins_with("/home/ghost"):
+		display_path = path.replace("/home/ghost", "~")
+	elif path.begins_with("/home/jcalloway"):
+		display_path = path.replace("/home/jcalloway", "~")
+	else:
+		display_path = path
+	
+	var username: String
+	var hostname: String
+	var user_color: String = "#50fa7b"
+	
+	if _remote_session:
+		username = "jcalloway"
+		hostname = "vd-internal"
+	else:
+		username = "ghost"
+		hostname = "local"
+	
+	# Create RichTextLabel for Kali-style command echo
+	var label: RichTextLabel = RichTextLabel.new()
+	label.bbcode_enabled = true
+	label.fit_content = true
+	label.scroll_active = false
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	
+	# Format: ┌──(username㉿hostname)-[path]
+	#         └─$ command
+	var prompt_text: String = "[color=" + user_color + "]┌──(" + username + "㉿" + hostname + ")[/color]-[[color=#5555ff]" + display_path + "[/color]]\n"
+	prompt_text += "[color=" + user_color + "]└─$[/color] [color=#d4d4d4]" + command + "[/color]"
+	
+	label.text = prompt_text
+	_output.add_child(label)
 
 
 func _scroll_to_bottom() -> void:
@@ -682,23 +799,46 @@ func _clear_output() -> void:
 
 
 func _update_prompt() -> void:
-	_prompt_label.text = _current_prompt
+	var path: String = _vfs.current_path
+	var display_path: String
+	if path.begins_with("/home/ghost"):
+		display_path = path.replace("/home/ghost", "~")
+	elif path.begins_with("/home/jcalloway"):
+		display_path = path.replace("/home/jcalloway", "~")
+	else:
+		display_path = path
+	
+	var username: String
+	var hostname: String
+	var user_color: String
+	
+	if _remote_session:
+		username = "jcalloway"
+		hostname = "vd-internal"
+		user_color = "#50fa7b"  # Green for normal user
+	else:
+		username = "ghost"
+		hostname = "local"
+		user_color = "#50fa7b"  # Green for normal user
+	
+	# Kali-style prompt with colors
+	# Format: username@hostname:[path]$
+	_current_prompt = "[color=" + user_color + "]┌──(" + username + "㉿" + hostname + ")[/color]-[[color=#5555ff]" + display_path + "[/color]]\n[color=" + user_color + "]└─$[/color]"
 
 
 func _cycle_history(direction: int) -> void:
 	_history_index = clamp(_history_index + direction, -1, _history.size() - 1)
 	
 	if _history_index == -1:
-		_input_field.text = ""
+		_current_input = ""
 	else:
-		_input_field.text = _history[_history_index]
+		_current_input = _history[_history_index]
 	
-	_input_field.caret_column = _input_field.text.length()
+	_update_input_line()
 
 
 func _attempt_tab_complete() -> void:
-	var current_text: String = _input_field.text
-	var parts: PackedStringArray = current_text.split(" ")
+	var parts: PackedStringArray = _current_input.split(" ")
 	
 	if parts.is_empty():
 		return
@@ -713,12 +853,16 @@ func _attempt_tab_complete() -> void:
 	if completions.size() == 1:
 		# Replace last token with completion
 		parts[parts.size() - 1] = completions[0]
-		_input_field.text = " ".join(parts)
-		_input_field.caret_column = _input_field.text.length()
+		_current_input = " ".join(parts)
+		_update_input_line()
 	elif completions.size() > 1:
-		# Print current line, completions, then reprint prompt
-		_print_line(_current_prompt + " " + current_text)
+		# Remove current input line, show completions, create new input line
+		if _current_input_line != null:
+			_current_input_line.text = _current_prompt + " " + _current_input
 		_print_line("  ".join(completions), "secondary")
+		_show_input_line()
+		_current_input = " ".join(parts)
+		_update_input_line()
 
 
 func _get_session_time() -> String:
