@@ -12,6 +12,7 @@ extends Control
 # Node references
 @onready var _window_layer: Control = $WindowLayer
 @onready var _right_click_menu: PopupMenu = $RightClickMenu
+@onready var _objectives_board: PanelContainer = $ObjectivesBoard
 
 # Open window tracking
 var _open_windows: Dictionary = {}
@@ -77,8 +78,7 @@ func _position_new_window(window: Control) -> void:
 
 
 func _on_stage_advanced(new_stage: int) -> void:
-	print("Stage advanced to: " + str(new_stage))
-	# ObjectivesBoard refresh call will be connected later
+	_objectives_board.refresh()
 
 
 func _on_world_event(event_name: String) -> void:
@@ -98,7 +98,7 @@ func _input(event: InputEvent) -> void:
 		_show_desktop_right_click(event.global_position)
 	
 	if event is InputEventKey and event.pressed and event.keycode == KEY_TAB:
-		print("Tab pressed — objectives board toggle (not yet implemented)")
+		_objectives_board.toggle()
 		get_viewport().set_input_as_handled()
 
 
