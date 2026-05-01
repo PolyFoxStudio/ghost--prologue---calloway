@@ -1,0 +1,98 @@
+[gd_scene load_steps=2 format=3 uid="uid://dsyp2hmktgfbh"]
+
+[ext_resource type="Script" path="res://scenes/desktop/Desktop.gd" id="1_desktop"]
+
+[node name="Desktop" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_desktop")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0509804, 0.0509804, 0.0509804, 1)
+
+[node name="DesktopIcons" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TerminalIcon" type="Control" parent="DesktopIcons"]
+custom_minimum_size = Vector2(48, 64)
+layout_mode = 0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 72.0
+offset_bottom = 88.0
+mouse_filter = 0
+
+[node name="CipherLinkIcon" type="Control" parent="DesktopIcons"]
+custom_minimum_size = Vector2(48, 64)
+layout_mode = 0
+offset_left = 24.0
+offset_top = 104.0
+offset_right = 72.0
+offset_bottom = 168.0
+mouse_filter = 0
+
+[node name="FilesIcon" type="Control" parent="DesktopIcons"]
+custom_minimum_size = Vector2(48, 64)
+layout_mode = 0
+offset_left = 24.0
+offset_top = 184.0
+offset_right = 72.0
+offset_bottom = 248.0
+mouse_filter = 0
+
+[node name="NotepadIcon" type="Control" parent="DesktopIcons"]
+custom_minimum_size = Vector2(48, 64)
+layout_mode = 0
+offset_left = 24.0
+offset_top = 264.0
+offset_right = 72.0
+offset_bottom = 328.0
+mouse_filter = 0
+
+[node name="WindowLayer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ObjectivesBoard" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -16.0
+offset_top = 16.0
+grow_horizontal = 0
+
+[node name="Taskbar" type="Control" parent="."]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -32.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="RightClickMenu" type="PopupMenu" parent="."]
