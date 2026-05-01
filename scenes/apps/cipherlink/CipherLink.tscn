@@ -1,0 +1,73 @@
+[gd_scene load_steps=2 format=3 uid="uid://cipherlink_scene_001"]
+
+[ext_resource type="Script" path="res://scenes/apps/cipherlink/CipherLink.gd" id="1_cipherlink"]
+
+[node name="CipherLink" type="HSplitContainer"]
+script = ExtResource("1_cipherlink")
+
+[node name="ContactsSidebar" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContactsSidebar"]
+layout_mode = 2
+
+[node name="SidebarHeader" type="Label" parent="ContactsSidebar/VBoxContainer"]
+layout_mode = 2
+text = "CONTACTS"
+
+[node name="HSeparator" type="HSeparator" parent="ContactsSidebar/VBoxContainer"]
+layout_mode = 2
+
+[node name="ContactList" type="VBoxContainer" parent="ContactsSidebar/VBoxContainer"]
+layout_mode = 2
+
+[node name="CipherContact" type="HBoxContainer" parent="ContactsSidebar/VBoxContainer/ContactList"]
+layout_mode = 2
+
+[node name="PresenceIndicator" type="ColorRect" parent="ContactsSidebar/VBoxContainer/ContactList/CipherContact"]
+custom_minimum_size = Vector2(8, 8)
+layout_mode = 2
+
+[node name="ContactName" type="Label" parent="ContactsSidebar/VBoxContainer/ContactList/CipherContact"]
+layout_mode = 2
+text = "cipher"
+
+[node name="MessagePanel" type="VBoxContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PanelHeader" type="Label" parent="MessagePanel"]
+layout_mode = 2
+text = "cipher"
+
+[node name="HSeparator" type="HSeparator" parent="MessagePanel"]
+layout_mode = 2
+
+[node name="MessageScroll" type="ScrollContainer" parent="MessagePanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MessageContainer" type="VBoxContainer" parent="MessagePanel/MessageScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ResponseOptions" type="HBoxContainer" parent="MessagePanel"]
+visible = false
+layout_mode = 2
+
+[node name="HSeparator2" type="HSeparator" parent="MessagePanel"]
+layout_mode = 2
+
+[node name="InputRow" type="HBoxContainer" parent="MessagePanel"]
+layout_mode = 2
+
+[node name="PromptLabel" type="Label" parent="MessagePanel/InputRow"]
+layout_mode = 2
+text = ">"
+
+[node name="InputField" type="LineEdit" parent="MessagePanel/InputRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = ""
+clear_button_enabled = false

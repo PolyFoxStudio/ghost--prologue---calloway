@@ -5,7 +5,7 @@ extends Control
 
 # Preload app scenes
 const TERMINAL_SCENE: PackedScene = preload("res://scenes/apps/terminal/Terminal.tscn")
-# const CIPHERLINK_SCENE = preload("res://scenes/apps/cipherlink/CipherLink.tscn")
+const CIPHERLINK_SCENE: PackedScene = preload("res://scenes/apps/cipherlink/CipherLink.tscn")
 # const FILES_SCENE = preload("res://scenes/apps/files/FileBrowser.tscn")
 # const NOTEPAD_SCENE = preload("res://scenes/apps/notepad/Notepad.tscn")
 
@@ -19,6 +19,14 @@ const APP_WINDOW_SCENE: PackedScene = preload("res://scenes/ui/AppWindow.tscn")
 # Open window tracking
 var _open_windows: Dictionary = {}
 
+# Notification tracking
+var _notifications: Dictionary = {}
+
+# Double-click detection
+const DOUBLE_CLICK_TIME: float = 0.4  # 400ms for double-click
+var _last_click_time: Dictionary = {}  # Track last click time per icon
+var _last_click_pos: Dictionary = {}   # Track last click position per icon
+
 
 func _ready() -> void:
 	# Connect global signals
@@ -26,10 +34,22 @@ func _ready() -> void:
 	ScriptManager.world_event_fired.connect(_on_world_event)
 	
 	# Connect desktop icon inputs
+	print("Desktop _ready() called")
+	print("TerminalIcon exists: ", has_node("DesktopIcons/TerminalIcon"))
+	print("TerminalIcon node: ", $DesktopIcons/TerminalIcon)
+	print("TerminalIcon mouse_filter: ", $DesktopIcons/TerminalIcon.mouse_filter)
+	
 	$DesktopIcons/TerminalIcon.gui_input.connect(_on_icon_input.bind("terminal"))
+	print("Connected TerminalIcon")
 	$DesktopIcons/CipherLinkIcon.gui_input.connect(_on_icon_input.bind("cipherlink"))
+	print("Connected CipherLinkIcon")
 	$DesktopIcons/FilesIcon.gui_input.connect(_on_icon_input.bind("files"))
+	print("Connected FilesIcon")
 	$DesktopIcons/NotepadIcon.gui_input.connect(_on_icon_input.bind("notepad"))
+	print("Connected NotepadIcon")
+	print("Desktop ready - icon signals connected")
+	
+	# CipherLink notification will be handled when app opens
 
 
 func open_app(app_name: String) -> void:
@@ -51,8 +71,9 @@ func open_app(app_name: String) -> void:
 				app_content = TERMINAL_SCENE.instantiate()
 				window_title = "Terminal"
 		"cipherlink":
-			print("open_app: cipherlink — not yet implemented")
-			return
+			if CIPHERLINK_SCENE:
+				app_content = CIPHERLINK_SCENE.instantiate()
+				window_title = "CipherLink"
 		"files":
 			print("open_app: files — not yet implemented")
 			return
@@ -134,6 +155,31 @@ func _on_right_click_item(id: int) -> void:
 
 
 func _on_icon_input(event: InputEvent, app_name: String) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
+	print("_on_icon_input called for: ", app_name, " event type: ", event.get_class())
+	if not event is InputEventMouseButton:
+		return
+	
+	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+	print("Mouse button event - pressed: ", mouse_event.pressed, " button: ", mouse_event.button_index)
+	
+	if not mouse_event.pressed or mouse_event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	
+	# Check for double-click
+	var current_time: float = Time.get_ticks_msec() / 1000.0
+	var last_time: float = _last_click_time.get(app_name, 0.0)
+	var time_diff: float = current_time - last_time
+	
+	if time_diff < DOUBLE_CLICK_TIME:
+		# Double-click detected!
 		open_app(app_name)
 		GameState.record_activity()
+		_last_click_time[app_name] = 0.0  # Reset to prevent triple-click
+	else:
+		# First click - just record the time
+		_last_click_time[app_name] = current_time
+
+
+func set_notification(app_name: String, active: bool) -> void:
+	_notifications[app_name] = active
+	# Visual notification on icons will be added in the styling pass
