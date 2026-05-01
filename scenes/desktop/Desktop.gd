@@ -3,11 +3,13 @@ extends Control
 ## Desktop
 ## Main scene of GHOST — manages desktop background, app icons, windows, and UI
 
-# Preload app scenes (commented out until scenes exist)
-# const TERMINAL_SCENE = preload("res://scenes/apps/terminal/Terminal.tscn")
+# Preload app scenes
+const TERMINAL_SCENE: PackedScene = preload("res://scenes/apps/terminal/Terminal.tscn")
 # const CIPHERLINK_SCENE = preload("res://scenes/apps/cipherlink/CipherLink.tscn")
 # const FILES_SCENE = preload("res://scenes/apps/files/FileBrowser.tscn")
 # const NOTEPAD_SCENE = preload("res://scenes/apps/notepad/Notepad.tscn")
+
+const APP_WINDOW_SCENE: PackedScene = preload("res://scenes/ui/AppWindow.tscn")
 
 # Node references
 @onready var _window_layer: Control = $WindowLayer
@@ -39,33 +41,46 @@ func open_app(app_name: String) -> void:
 			parent.move_child(window, parent.get_child_count() - 1)
 		return
 	
-	# Match app name to scene (placeholder for now)
+	# Instantiate the appropriate app scene
+	var app_content: Control = null
+	var window_title: String = ""
+	
 	match app_name:
 		"terminal":
-			print("open_app: terminal")
+			if TERMINAL_SCENE:
+				app_content = TERMINAL_SCENE.instantiate()
+				window_title = "Terminal"
 		"cipherlink":
-			print("open_app: cipherlink")
+			print("open_app: cipherlink — not yet implemented")
+			return
 		"files":
-			print("open_app: files")
+			print("open_app: files — not yet implemented")
+			return
 		"notepad":
-			print("open_app: notepad")
-		_:
-			print("open_app: unknown app " + app_name)
+			print("open_app: notepad — not yet implemented")
+			return
 	
-	# When scenes are uncommented, instantiate here:
-	# var window_scene: PackedScene = null
-	# match app_name:
-	#     "terminal": window_scene = TERMINAL_SCENE
-	#     "cipherlink": window_scene = CIPHERLINK_SCENE
-	#     "files": window_scene = FILES_SCENE
-	#     "notepad": window_scene = NOTEPAD_SCENE
-	# 
-	# if window_scene:
-	#     var window: Control = window_scene.instantiate()
-	#     _window_layer.add_child(window)
-	#     _open_windows[app_name] = window
-	#     window.closed.connect(_on_window_closed.bind(app_name))
-	#     _position_new_window(window)
+	if not app_content:
+		return
+	
+	# Create window chrome
+	var window: PanelContainer = APP_WINDOW_SCENE.instantiate()
+	window.title = window_title
+	window.size = Vector2(800, 600)
+	
+	# Add app content to window's AppContainer
+	var app_container: MarginContainer = window.get_node("VBoxContainer/AppContainer")
+	app_container.add_child(app_content)
+	
+	# Add window to layer
+	_window_layer.add_child(window)
+	
+	# Position and track
+	_position_new_window(window)
+	_open_windows[app_name] = window
+	
+	# Connect closed signal
+	window.closed.connect(_on_window_closed.bind(app_name))
 
 
 func _on_window_closed(app_name: String) -> void:

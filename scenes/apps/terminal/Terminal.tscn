@@ -1,0 +1,31 @@
+[gd_scene load_steps=2 format=3 uid="uid://c5l53uvg2sbp4"]
+
+[ext_resource type="Script" path="res://scenes/apps/terminal/Terminal.gd" id="1_terminal"]
+
+[node name="Terminal" type="VBoxContainer"]
+offset_right = 640.0
+offset_bottom = 480.0
+script = ExtResource("1_terminal")
+
+[node name="OutputScroll" type="ScrollContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+follow_focus = true
+
+[node name="OutputContainer" type="VBoxContainer" parent="OutputScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="InputRow" type="HBoxContainer" parent="."]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+
+[node name="PromptLabel" type="Label" parent="InputRow"]
+layout_mode = 2
+text = "ghost@local:~$"
+
+[node name="InputField" type="LineEdit" parent="InputRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+clear_button_enabled = false
+context_menu_enabled = false
